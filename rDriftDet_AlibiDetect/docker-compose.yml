@@ -1,0 +1,18 @@
+services:
+  driftdet_alibi-detect:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    tty: true
+    user: 1000:1000  # Dockerfileで作成したuserのUID:GID
+    volumes:
+      - ./test:/home/driftdet/alibi-detect
+    working_dir: /home/driftdet/alibi-detect
+    # GPU support disabled for compatibility
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
