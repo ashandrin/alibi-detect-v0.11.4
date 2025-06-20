@@ -309,6 +309,65 @@ def filter_results(results, algorithms=None, patterns=None, datasets=None, scena
     return filtered_results
 
 
+def generate_json_only(results=None, results_file=None, output_dir="./output/comprehensive_results",
+                      algorithms=None, patterns=None, datasets=None, scenarios=None, seeds=None,
+                      output_filename=None):
+    """Generate filtered JSON files from existing evaluation results with specified filtering conditions."""
+    if results is None:
+        if results_file is None:
+            results_file = os.path.join(output_dir, "evaluation_results.json")
+        results = load_evaluation_results(results_file)
+    
+    if any([algorithms, patterns, datasets, scenarios, seeds]):
+        results = filter_results(results, algorithms, patterns, datasets, scenarios, seeds)
+    
+    if not results:
+        print("No results match the specified filtering criteria")
+        return 0
+    
+    if output_filename is None:
+        filter_parts = []
+        if algorithms:
+            filter_parts.append(f"alg-{'_'.join(algorithms)}")
+        if patterns:
+            filter_parts.append(f"pat-{'_'.join(patterns)}")
+        if datasets:
+            filter_parts.append(f"data-{'_'.join(datasets)}")
+        if scenarios:
+            filter_parts.append(f"scen-{'_'.join(scenarios)}")
+        if seeds:
+            filter_parts.append(f"seed-{'_'.join(map(str, seeds))}")
+        
+        if filter_parts:
+            output_filename = f"filtered_results_{'_'.join(filter_parts)}.json"
+        else:
+            output_filename = "filtered_results_all.json"
+    
+    output_path = os.path.join(output_dir, output_filename)
+    
+    with open(output_path, 'w') as f:
+        json.dump(results, f, indent=2, default=str)
+    
+    print(f"Filtered JSON results saved to: {output_path}")
+    print(f"Total filtered results: {len(results)}")
+    
+    if results:
+        algorithms_found = set(r['algorithm'] for r in results)
+        patterns_found = set(r['pattern'] for r in results)
+        datasets_found = set(r['dataset'] for r in results)
+        scenarios_found = set(r['scenario'] for r in results)
+        seeds_found = set(r['seed'] for r in results)
+        
+        print(f"Filtered results summary:")
+        print(f"  Algorithms: {sorted(algorithms_found)}")
+        print(f"  Patterns: {sorted(patterns_found)}")
+        print(f"  Datasets: {sorted(datasets_found)}")
+        print(f"  Scenarios: {sorted(scenarios_found)}")
+        print(f"  Seeds: {sorted(seeds_found)}")
+    
+    return len(results)
+
+
 def generate_csv_only(results=None, results_file=None, output_dir="./output/comprehensive_results",
                      algorithms=None, patterns=None, datasets=None, scenarios=None, seeds=None):
     """Generate summary CSV files from existing evaluation results with specified filtering conditions."""
@@ -517,14 +576,15 @@ if __name__ == "__main__":
                        help="Output directory for results")
     parser.add_argument("--test", action='store_true', 
                        help="Run test mode with reduced parameter space")
-    parser.add_argument("--mode", choices=['both', 'evaluation', 'csv'], default='both',
-                       help="Mode: 'both' (default), 'evaluation' only, or 'csv' generation only")
+    parser.add_argument("--mode", choices=['both', 'evaluation', 'csv', 'json'], default='both',
+                       help="Mode: 'both' (default), 'evaluation' only, 'csv' generation only, or 'json' filtered output only")
     parser.add_argument("--results-file", help="JSON file with evaluation results (for csv mode)")
     parser.add_argument("--algorithms", nargs='+', choices=ALGORITHMS, help="Filter by algorithms")
     parser.add_argument("--patterns", nargs='+', choices=PATTERNS, help="Filter by patterns")
     parser.add_argument("--datasets", nargs='+', choices=DATASETS, help="Filter by datasets")
     parser.add_argument("--scenarios", nargs='+', choices=SCENARIOS, help="Filter by scenarios")
     parser.add_argument("--seeds", nargs='+', type=int, help="Filter by seeds")
+    parser.add_argument("--output-filename", help="Custom filename for JSON output (json mode only)")
     
     args = parser.parse_args()
     
@@ -576,6 +636,19 @@ if __name__ == "__main__":
                 
         except Exception as e:
             print(f"Error generating CSV files: {e}")
+            sys.exit(1)
+    
+    if args.mode == 'json':
+        print("\n=== Generating Filtered JSON File ===")
+        try:
+            filtered_count = generate_json_only(results, args.results_file, args.output,
+                                              args.algorithms, args.patterns, args.datasets,
+                                              args.scenarios, args.seeds, args.output_filename)
+            
+            print(f"Total filtered results: {filtered_count}")
+            
+        except Exception as e:
+            print(f"Error generating JSON file: {e}")
             sys.exit(1)
     
     print("\n=== Execution Complete ===")

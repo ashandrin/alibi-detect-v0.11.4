@@ -28,6 +28,11 @@ python comprehensive_evaluation_separated.py --mode evaluation --output ./result
 python comprehensive_evaluation_separated.py --mode csv --results-file ./results/evaluation_results.json --output ./results
 ```
 
+### Generate Filtered JSON from Existing Results
+```bash
+python comprehensive_evaluation_separated.py --mode json --results-file ./results/evaluation_results.json --algorithms mmd lsdd --patterns default
+```
+
 ### Run with Filtering
 ```bash
 # Evaluate only specific algorithms and patterns
@@ -39,7 +44,7 @@ python comprehensive_evaluation_separated.py --mode csv --datasets terrace treeg
 
 ## Filtering Parameters
 
-All filtering parameters work with both evaluation and CSV generation modes:
+All filtering parameters work with evaluation, CSV generation, and JSON generation modes:
 
 - `--algorithms`: Filter by algorithms (choices: mmd, lsdd, lmmd, ks, cvm, spot)
 - `--patterns`: Filter by patterns (choices: default, pattern1, pattern2, pattern3, pattern4)
@@ -60,12 +65,33 @@ All filtering parameters work with both evaluation and CSV generation modes:
 - `confusion_matrices.csv`: Confusion matrix data
 - `confusion_matrix_tables.csv`: Confusion matrices in table format
 
+### JSON Mode
+- `filtered_results_{filter_description}.json`: Filtered evaluation results based on specified criteria
+- Custom filename supported via `--output-filename` parameter
+
 ## Benefits
 
-1. **Resilience**: If evaluation is interrupted, results are saved and CSV generation can be run separately
-2. **Flexibility**: Generate different CSV summaries from the same evaluation results using different filters
-3. **Efficiency**: Re-generate CSV files without re-running expensive evaluations
-4. **Filtering**: Apply different filtering criteria to evaluation vs CSV generation
+1. **Resilience**: If evaluation is interrupted, results are saved and CSV/JSON generation can be run separately
+2. **Flexibility**: Generate different CSV summaries or filtered JSON files from the same evaluation results using different filters
+3. **Efficiency**: Re-generate CSV/JSON files without re-running expensive evaluations
+4. **Filtering**: Apply different filtering criteria to evaluation vs CSV/JSON generation
+5. **Custom JSON Output**: Create filtered JSON files with specific combinations of parameters for targeted analysis
+
+## Usage Examples for JSON Mode
+
+```bash
+# Generate JSON with specific algorithms and patterns
+python comprehensive_evaluation_separated.py --mode json --algorithms mmd lsdd --patterns default pattern1
+
+# Generate JSON for specific dataset and scenario combinations
+python comprehensive_evaluation_separated.py --mode json --datasets terrace treegrowth_5 --scenarios datashift_on
+
+# Generate JSON with custom filename
+python comprehensive_evaluation_separated.py --mode json --algorithms mmd --output-filename mmd_only_results.json
+
+# Generate JSON from existing results with multiple filters
+python comprehensive_evaluation_separated.py --mode json --results-file ./results/evaluation_results.json --algorithms mmd lsdd --seeds 0 1 2
+```
 
 ## Backward Compatibility
 
