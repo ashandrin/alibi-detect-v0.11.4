@@ -309,21 +309,128 @@ def filter_results(results, algorithms=None, patterns=None, datasets=None, scena
     return filtered_results
 
 
+def parse_experiment_id(experiment_dir):
+    """Parse experiment directory name to extract components."""
+    parts = experiment_dir.split('_')
+    if len(parts) >= 5:
+        algorithm = parts[0]
+        pattern = parts[1]
+        dataset = parts[2]
+        scenario = '_'.join(parts[3:-1])  # Handle multi-part scenarios
+        seed = int(parts[-1].replace('seed', ''))
+        return algorithm, pattern, dataset, scenario, seed
+    return None, None, None, None, None
+
+def load_csv_results(csv_path):
+    """Load drift detection results from CSV file."""
+    results = []
+    try:
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['dataset'].strip():  # Skip empty rows
+                    results.append({
+                        'dataset': row['dataset'],
+                        'is_drift': row['is_drift'],
+                        'p_val': row['p_val'],
+                        'statistic': row['statistic'],
+                        'time': row.get('time', '0')
+                    })
+    except Exception as e:
+        print(f"Error loading {csv_path}: {e}")
+    return results
+
+def aggregate_individual_results(results_dir, algorithms=None, patterns=None, datasets=None, scenarios=None, seeds=None):
+    """Aggregate individual experiment CSV results into consolidated format with filtering."""
+    consolidated_results = []
+    
+    filtered_algorithms, filtered_patterns, filtered_datasets, filtered_scenarios, filtered_seeds = apply_filters(
+        algorithms, patterns, datasets, scenarios, seeds)
+    
+    if not os.path.exists(results_dir):
+        print(f"Results directory not found: {results_dir}")
+        return consolidated_results
+    
+    for algo_pattern_dir in os.listdir(results_dir):
+        algo_pattern_path = os.path.join(results_dir, algo_pattern_dir)
+        if not os.path.isdir(algo_pattern_path):
+            continue
+            
+        print(f"Processing algorithm_pattern directory: {algo_pattern_dir}")
+        
+        for experiment_dir in os.listdir(algo_pattern_path):
+            experiment_path = os.path.join(algo_pattern_path, experiment_dir)
+            if not os.path.isdir(experiment_path):
+                continue
+                
+            results_subdir = os.path.join(experiment_path, 'results')
+            csv_path = os.path.join(results_subdir, 'drift_detection_results.csv')
+            
+            if os.path.exists(csv_path):
+                algorithm, pattern, dataset, scenario, seed = parse_experiment_id(experiment_dir)
+                
+                if (algorithm and pattern and dataset and scenario is not None and seed is not None and
+                    algorithm in filtered_algorithms and
+                    pattern in filtered_patterns and
+                    dataset in filtered_datasets and
+                    scenario in filtered_scenarios and
+                    seed in filtered_seeds):
+                    
+                    csv_results = load_csv_results(csv_path)
+                    
+                    if csv_results:
+                        result_entry = {
+                            'experiment_id': experiment_dir,
+                            'algorithm': algorithm,
+                            'pattern': pattern,
+                            'dataset': dataset,
+                            'scenario': scenario,
+                            'seed': seed,
+                            'status': 'success',
+                            'execution_time': sum(float(r['time']) for r in csv_results),
+                            'results': csv_results
+                        }
+                        consolidated_results.append(result_entry)
+                        print(f"  Processed: {experiment_dir}")
+                    else:
+                        print(f"  No results found in: {csv_path}")
+                else:
+                    if algorithm and pattern and dataset and scenario is not None and seed is not None:
+                        print(f"  Filtered out: {experiment_dir}")
+                    else:
+                        print(f"  Could not parse experiment directory: {experiment_dir}")
+            else:
+                print(f"  CSV file not found: {csv_path}")
+    
+    return consolidated_results
+
 def generate_json_only(results=None, results_file=None, output_dir="./output/comprehensive_results",
                       algorithms=None, patterns=None, datasets=None, scenarios=None, seeds=None,
                       output_filename=None):
-    """Generate filtered JSON files from existing evaluation results with specified filtering conditions."""
-    if results is None:
-        if results_file is None:
-            results_file = os.path.join(output_dir, "evaluation_results.json")
-        results = load_evaluation_results(results_file)
+    """Generate consolidated JSON files from individual CSV experiment results with specified filtering conditions."""
     
-    if any([algorithms, patterns, datasets, scenarios, seeds]):
-        results = filter_results(results, algorithms, patterns, datasets, scenarios, seeds)
+    if results_file:
+        if os.path.isdir(results_file):
+            results_source_dir = results_file
+        elif os.path.isfile(results_file):
+            results_source_dir = os.path.dirname(results_file)
+            if not results_source_dir or not os.path.exists(results_source_dir):
+                results_source_dir = output_dir
+        else:
+            results_source_dir = results_file
+    else:
+        results_source_dir = output_dir
     
-    if not results:
-        print("No results match the specified filtering criteria")
+    print(f"Aggregating individual experiment results from: {results_source_dir}")
+    
+    consolidated_results = aggregate_individual_results(
+        results_source_dir, algorithms, patterns, datasets, scenarios, seeds)
+    
+    if not consolidated_results:
+        print("No results found to aggregate")
         return 0
+    
+    print(f"Aggregated {len(consolidated_results)} experiment results")
     
     if output_filename is None:
         filter_parts = []
@@ -339,33 +446,33 @@ def generate_json_only(results=None, results_file=None, output_dir="./output/com
             filter_parts.append(f"seed-{'_'.join(map(str, seeds))}")
         
         if filter_parts:
-            output_filename = f"filtered_results_{'_'.join(filter_parts)}.json"
+            output_filename = f"consolidated_results_{'_'.join(filter_parts)}.json"
         else:
-            output_filename = "filtered_results_all.json"
+            output_filename = "consolidated_results_all.json"
     
     output_path = os.path.join(output_dir, output_filename)
     
     with open(output_path, 'w') as f:
-        json.dump(results, f, indent=2, default=str)
+        json.dump(consolidated_results, f, indent=2, default=str)
     
-    print(f"Filtered JSON results saved to: {output_path}")
-    print(f"Total filtered results: {len(results)}")
+    print(f"Consolidated JSON results saved to: {output_path}")
+    print(f"Total consolidated results: {len(consolidated_results)}")
     
-    if results:
-        algorithms_found = set(r['algorithm'] for r in results)
-        patterns_found = set(r['pattern'] for r in results)
-        datasets_found = set(r['dataset'] for r in results)
-        scenarios_found = set(r['scenario'] for r in results)
-        seeds_found = set(r['seed'] for r in results)
+    if consolidated_results:
+        algorithms_found = sorted(set(r['algorithm'] for r in consolidated_results))
+        patterns_found = sorted(set(r['pattern'] for r in consolidated_results))
+        datasets_found = sorted(set(r['dataset'] for r in consolidated_results))
+        scenarios_found = sorted(set(r['scenario'] for r in consolidated_results))
+        seeds_found = sorted(set(r['seed'] for r in consolidated_results))
         
-        print(f"Filtered results summary:")
-        print(f"  Algorithms: {sorted(algorithms_found)}")
-        print(f"  Patterns: {sorted(patterns_found)}")
-        print(f"  Datasets: {sorted(datasets_found)}")
-        print(f"  Scenarios: {sorted(scenarios_found)}")
-        print(f"  Seeds: {sorted(seeds_found)}")
+        print("Consolidated results summary:")
+        print(f"  Algorithms: {algorithms_found}")
+        print(f"  Patterns: {patterns_found}")
+        print(f"  Datasets: {datasets_found}")
+        print(f"  Scenarios: {scenarios_found}")
+        print(f"  Seeds: {seeds_found}")
     
-    return len(results)
+    return len(consolidated_results)
 
 
 def generate_csv_only(results=None, results_file=None, output_dir="./output/comprehensive_results",
@@ -578,7 +685,7 @@ if __name__ == "__main__":
                        help="Run test mode with reduced parameter space")
     parser.add_argument("--mode", choices=['both', 'evaluation', 'csv', 'json'], default='both',
                        help="Mode: 'both' (default), 'evaluation' only, 'csv' generation only, or 'json' filtered output only")
-    parser.add_argument("--results-file", help="JSON file with evaluation results (for csv mode)")
+    parser.add_argument("--results-file", help="JSON file with evaluation results (for csv mode) or directory with individual CSV results (for json mode)")
     parser.add_argument("--algorithms", nargs='+', choices=ALGORITHMS, help="Filter by algorithms")
     parser.add_argument("--patterns", nargs='+', choices=PATTERNS, help="Filter by patterns")
     parser.add_argument("--datasets", nargs='+', choices=DATASETS, help="Filter by datasets")
@@ -639,13 +746,13 @@ if __name__ == "__main__":
             sys.exit(1)
     
     if args.mode == 'json':
-        print("\n=== Generating Filtered JSON File ===")
+        print("\n=== Generating Consolidated JSON File ===")
         try:
-            filtered_count = generate_json_only(results, args.results_file, args.output,
-                                              args.algorithms, args.patterns, args.datasets,
-                                              args.scenarios, args.seeds, args.output_filename)
+            consolidated_count = generate_json_only(results, args.results_file, args.output,
+                                                  args.algorithms, args.patterns, args.datasets,
+                                                  args.scenarios, args.seeds, args.output_filename)
             
-            print(f"Total filtered results: {filtered_count}")
+            print(f"Total consolidated results: {consolidated_count}")
             
         except Exception as e:
             print(f"Error generating JSON file: {e}")

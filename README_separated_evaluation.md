@@ -28,9 +28,9 @@ python comprehensive_evaluation_separated.py --mode evaluation --output ./result
 python comprehensive_evaluation_separated.py --mode csv --results-file ./results/evaluation_results.json --output ./results
 ```
 
-### Generate Filtered JSON from Existing Results
+### Generate Consolidated JSON from Individual CSV Results
 ```bash
-python comprehensive_evaluation_separated.py --mode json --results-file ./results/evaluation_results.json --algorithms mmd lsdd --patterns default
+python comprehensive_evaluation_separated.py --mode json --results-file ./output/comprehensive_results --algorithms lsdd --patterns default
 ```
 
 ### Run with Filtering
@@ -66,7 +66,7 @@ All filtering parameters work with evaluation, CSV generation, and JSON generati
 - `confusion_matrix_tables.csv`: Confusion matrices in table format
 
 ### JSON Mode
-- `filtered_results_{filter_description}.json`: Filtered evaluation results based on specified criteria
+- `consolidated_results_{filter_description}.json`: Consolidated evaluation results aggregated from individual CSV files based on specified criteria
 - Custom filename supported via `--output-filename` parameter
 
 ## Benefits
@@ -80,17 +80,17 @@ All filtering parameters work with evaluation, CSV generation, and JSON generati
 ## Usage Examples for JSON Mode
 
 ```bash
-# Generate JSON with specific algorithms and patterns
-python comprehensive_evaluation_separated.py --mode json --algorithms mmd lsdd --patterns default pattern1
+# Generate consolidated JSON from individual CSV results with specific algorithms and patterns
+python comprehensive_evaluation_separated.py --mode json --results-file ./output/comprehensive_results --algorithms lsdd --patterns default pattern1
 
-# Generate JSON for specific dataset and scenario combinations
-python comprehensive_evaluation_separated.py --mode json --datasets terrace treegrowth_5 --scenarios datashift_on
+# Generate consolidated JSON for specific dataset and scenario combinations
+python comprehensive_evaluation_separated.py --mode json --results-file ./output/comprehensive_results --datasets terrace treegrowth_5 --scenarios datashift_on
 
-# Generate JSON with custom filename
-python comprehensive_evaluation_separated.py --mode json --algorithms mmd --output-filename mmd_only_results.json
+# Generate consolidated JSON with custom filename
+python comprehensive_evaluation_separated.py --mode json --results-file ./output/comprehensive_results --algorithms lsdd --output-filename lsdd_consolidated.json
 
-# Generate JSON from existing results with multiple filters
-python comprehensive_evaluation_separated.py --mode json --results-file ./results/evaluation_results.json --algorithms mmd lsdd --seeds 0 1 2
+# Generate consolidated JSON from individual CSV results with multiple filters
+python comprehensive_evaluation_separated.py --mode json --results-file ./output/comprehensive_results --algorithms lsdd --seeds 0 1 2
 ```
 
 ## Backward Compatibility
